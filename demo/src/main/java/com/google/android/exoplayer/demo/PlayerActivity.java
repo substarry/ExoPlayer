@@ -15,7 +15,33 @@
  */
 package com.google.android.exoplayer.demo;
 
-import com.google.android.exoplayer.AspectRatioFrameLayout;
+import android.Manifest.permission;
+import android.annotation.TargetApi;
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.View.OnKeyListener;
+import android.view.View.OnTouchListener;
+import android.view.accessibility.CaptioningManager;
+import android.widget.Button;
+import android.widget.MediaController;
+import android.widget.PopupMenu;
+import android.widget.PopupMenu.OnMenuItemClickListener;
+import android.widget.TextView;
+import android.widget.Toast;
+
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.ExoPlayer;
 import com.google.android.exoplayer.MediaCodecTrackRenderer.DecoderInitializationException;
@@ -41,34 +67,6 @@ import com.google.android.exoplayer.util.MimeTypes;
 import com.google.android.exoplayer.util.Util;
 import com.google.android.exoplayer.util.VerboseLogUtil;
 
-import android.Manifest.permission;
-import android.annotation.TargetApi;
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Bundle;
-import android.text.TextUtils;
-import android.util.Log;
-import android.view.KeyEvent;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.MotionEvent;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.view.View.OnKeyListener;
-import android.view.View.OnTouchListener;
-import android.view.accessibility.CaptioningManager;
-import android.widget.Button;
-import android.widget.MediaController;
-import android.widget.PopupMenu;
-import android.widget.PopupMenu.OnMenuItemClickListener;
-import android.widget.TextView;
-import android.widget.Toast;
-
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -79,7 +77,7 @@ import java.util.Map;
 /**
  * An activity that plays media using {@link DemoPlayer}.
  */
-public class PlayerActivity extends Activity implements SurfaceHolder.Callback, OnClickListener,
+public class PlayerActivity extends Activity implements VideoSurfaceView.Callback, OnClickListener,
     DemoPlayer.Listener, DemoPlayer.CaptionListener, DemoPlayer.Id3MetadataListener,
     AudioCapabilitiesReceiver.Listener {
 
@@ -112,8 +110,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
   private MediaController mediaController;
   private View debugRootView;
   private View shutterView;
-  private AspectRatioFrameLayout videoFrame;
-  private SurfaceView surfaceView;
+  private VideoSurfaceView surfaceView;
   private TextView debugTextView;
   private TextView playerStateTextView;
   private SubtitleLayout subtitleLayout;
@@ -169,9 +166,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     shutterView = findViewById(R.id.shutter);
     debugRootView = findViewById(R.id.controls_root);
 
-    videoFrame = (AspectRatioFrameLayout) findViewById(R.id.video_frame);
-    surfaceView = (SurfaceView) findViewById(R.id.surface_view);
-    surfaceView.getHolder().addCallback(this);
+    surfaceView = (VideoSurfaceView) findViewById(R.id.surface_view);
+    surfaceView.addCallback(this);
     debugTextView = (TextView) findViewById(R.id.debug_text_view);
 
     playerStateTextView = (TextView) findViewById(R.id.player_state_view);
@@ -344,7 +340,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
       playerNeedsPrepare = false;
       updateButtonVisibilities();
     }
-    player.setSurface(surfaceView.getHolder().getSurface());
+    player.setSurface(surfaceView.getSurface());
     player.setPlayWhenReady(playWhenReady);
   }
 
@@ -433,8 +429,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
   public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees,
       float pixelWidthAspectRatio) {
     shutterView.setVisibility(View.GONE);
-    videoFrame.setAspectRatio(
-        height == 0 ? 1 : (width * pixelWidthAspectRatio) / height);
+    surfaceView.setVideoWidthHeightRatio(
+            height == 0 ? 1 : (width * pixelWidthAspectRatio) / height, unappliedRotationDegrees);
   }
 
   // User controls
@@ -633,22 +629,22 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     }
   }
 
-  // SurfaceHolder.Callback implementation
+  // VideoSurfaceHolder.Callback implementation
 
   @Override
-  public void surfaceCreated(SurfaceHolder holder) {
+  public void surfaceCreated(Surface surface) {
     if (player != null) {
-      player.setSurface(holder.getSurface());
+      player.setSurface(surface);
     }
   }
 
   @Override
-  public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+  public void surfaceChanged(int width, int height) {
     // Do nothing.
   }
 
   @Override
-  public void surfaceDestroyed(SurfaceHolder holder) {
+  public void surfaceDestroyed() {
     if (player != null) {
       player.blockingClearSurface();
     }
